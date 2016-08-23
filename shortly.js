@@ -10,6 +10,7 @@ var User = require('./app/models/user');
 var Links = require('./app/collections/links');
 var Link = require('./app/models/link');
 var Click = require('./app/models/click');
+var bcrypt = require('bcrypt-nodejs');
 
 var app = express();
 
@@ -31,10 +32,10 @@ app.use(express.static(__dirname + '/public'));
 
 var restrict = function(req, res, next) {
   if (req.session.login) {
+    console.log('Were inside the wall');
     next();
   } else {
-    //route user to login view
-    // res.session.error = 'Access denied';
+    console.log('Were outside the wall');
     res.redirect('/login');
   }
 };
@@ -49,7 +50,7 @@ function(req, res) {
   res.render('index');
 });
 
-app.get('/links', restrict,
+app.get('/links', restrict,   
 function(req, res) {
   Links.reset().fetch().then(function(links) {
     res.status(200).send(links.models);
@@ -93,21 +94,47 @@ function(req, res) {
 /************************************************************/
 
 app.get('/login', function(req, res) {
-  // serve login page
   res.render('login');
+});
+
+app.get('/signup', function(req, res) {
+  res.render('signup');
 });
 
 app.post('/login', function(req, res) {
   console.log('post req:', req.body);
 
-  if (req.body.username === 'Phillip' && req.body.password === 'Phillip') {
-    req.session.login = true;
-    res.redirect('/');
-  } else {
-    res.redirect('/login');
-  }
+  new User({ username: req.body.username}).fetch().then(function(found) {
+    console.log(found.password);
+    if (found && found.password === req.body.password) {
+      req.session.login = true;
+      console.log('req.session', req.session);
+      console.log('req.session.login:', req.session.login);
+      res.redirect('/');      
+    } else {
+      console.log('We\'re being redireted11');
+      res.redirect('/login');
+    }
 
+  });
+});
 
+app.post('/signup', function(req, res) {
+  console.log('post signup req.body', req.body);
+  new User({ username: req.body.username}).fetch().then(function(found) {
+    if (found) {
+      res.redirect('/login');
+    } else {
+      Users.create({
+        username: req.body.username,
+        password: req.body.password
+      })
+      .then(function(newUser) {
+        req.session.login = true;
+        res.redirect('/');
+      });
+    }
+  });
 });
 
 
