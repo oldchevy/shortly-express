@@ -11,6 +11,7 @@ var Links = require('./app/collections/links');
 var Link = require('./app/models/link');
 var Click = require('./app/models/click');
 var bcrypt = require('bcrypt-nodejs');
+var Promise = require('bluebird');
 
 var app = express();
 
@@ -31,6 +32,7 @@ app.use(express.static(__dirname + '/public'));
 
 
 var restrict = function(req, res, next) {
+  console.log('in restrict');
   if (req.session.login) {
     next();
   } else {
@@ -40,6 +42,7 @@ var restrict = function(req, res, next) {
 
 app.get('/', restrict, 
 function(req, res) {
+  console.log('In / route');
   res.render('index');
 });
 
@@ -92,10 +95,18 @@ function(req, res) {
 /************************************************************/
 
 app.get('/login', function(req, res) {
+  console.log('/login');
   res.render('login');
+
+  if (req.session.login) {
+    req.session.destroy(function(err) {
+      if (err) { console.log(err); }
+    });
+  }
 });
 
 app.get('/signup', function(req, res) {
+  console.log('/signup');
   res.render('signup');
 });
 
@@ -103,29 +114,50 @@ app.post('/login', function(req, res) {
   console.log('post req:', req.body);
 
   new User({ username: req.body.username}).fetch().then(function(found) {
-    if (found && found.attributes.password === req.body.password) {
-      req.session.login = true;
-      res.redirect('/');      
+    if (found) {
+      console.log('For Login - \nsPassword: ', req.body.password, '\nHash: ', found.attributes.password);
+      bcrypt.compare(req.body.password, found.attributes.password, function(err, result) {
+        if (err) {
+          throw err;
+        }
+        if (result) {
+          req.session.login = true;
+          res.redirect('/');      
+        } else {
+          res.redirect('/login');          
+        }
+      });
     } else {
       res.redirect('/login');
     }
-
   });
 });
 
 app.post('/signup', function(req, res) {
   console.log('post signup req.body', req.body);
   new User({ username: req.body.username}).fetch().then(function(found) {
+    console.log('Inside first Promise');
     if (found) {
       res.redirect('/login');
     } else {
-      Users.create({
-        username: req.body.username,
-        password: req.body.password
-      })
-      .then(function(newUser) {
-        req.session.login = true;
-        res.redirect('/');
+      console.log('About to hash');
+      bcrypt.genSalt(10, function(err, salt) {
+        bcrypt.hash(req.body.password, salt, null, function(err, hash) {
+          console.log('For Signup - \nPassword: ', req.body.password, '\nHash: ', hash, '\nSalt: ', salt);
+          if (err) {
+            console.log(err);
+            throw err;
+          } else {
+            Users.create({
+              username: req.body.username,
+              password: hash
+            })
+            .then(function(newUser) {
+              req.session.login = true;
+              res.redirect('/');
+            });
+          }
+        });
       });
     }
   });
@@ -140,6 +172,7 @@ app.post('/signup', function(req, res) {
 /************************************************************/
 
 app.get('/*', function(req, res) {
+  console.log('In Links route');
   new Link({ code: req.params[0] }).fetch().then(function(link) {
     if (!link) {
       res.redirect('/');
