@@ -32,10 +32,8 @@ app.use(express.static(__dirname + '/public'));
 
 var restrict = function(req, res, next) {
   if (req.session.login) {
-    console.log('Were inside the wall');
     next();
   } else {
-    console.log('Were outside the wall');
     res.redirect('/login');
   }
 };
@@ -105,14 +103,10 @@ app.post('/login', function(req, res) {
   console.log('post req:', req.body);
 
   new User({ username: req.body.username}).fetch().then(function(found) {
-    console.log(found.password);
-    if (found && found.password === req.body.password) {
+    if (found && found.attributes.password === req.body.password) {
       req.session.login = true;
-      console.log('req.session', req.session);
-      console.log('req.session.login:', req.session.login);
       res.redirect('/');      
     } else {
-      console.log('We\'re being redireted11');
       res.redirect('/login');
     }
 
