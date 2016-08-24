@@ -160,6 +160,7 @@ app.post('/login', function(req, res) {
   });
 });
 
+
 app.post('/signup', function(req, res) {
   console.log('post signup req.body', req.body);
   new User({ username: req.body.username}).fetch().then(function(found) {
@@ -167,24 +168,13 @@ app.post('/signup', function(req, res) {
     if (found) {
       res.redirect('/login');
     } else {
-      console.log('About to hash');
-      bcrypt.genSalt(10, function(err, salt) {
-        bcrypt.hash(req.body.password, salt, null, function(err, hash) {
-          console.log('For Signup - \nPassword: ', req.body.password, '\nHash: ', hash, '\nSalt: ', salt);
-          if (err) {
-            console.log(err);
-            throw err;
-          } else {
-            Users.create({
-              username: req.body.username,
-              password: hash
-            })
-            .then(function(newUser) {
-              req.session.username = req.body.username;
-              res.redirect('/');
-            });
-          }
-        });
+      Users.create({
+        username: req.body.username,
+        password: req.body.password
+      })
+      .then(function(newUser) {
+        req.session.username = req.body.username;
+        res.redirect('/');
       });
     }
   });

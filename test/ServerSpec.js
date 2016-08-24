@@ -16,6 +16,7 @@ var Link = require('../app/models/link');
 var xbeforeEach = function() {};
 /************************************************************/
 
+var globalCurrUser;
 
 describe('', function() {
 
@@ -68,7 +69,8 @@ describe('', function() {
       new User({
         'username': 'Phillip',
         'password': 'Phillip'
-      }).save().then(function() {
+      }).save().then(function(user) {
+        globalCurrUser = user;
         var options = {
           'method': 'POST',
           'followAllRedirects': true,
@@ -159,11 +161,13 @@ describe('', function() {
         link = new Link({
           url: 'http://roflzoo.com/',
           title: 'Funny pictures of animals, funny dog pictures',
-          baseUrl: 'http://127.0.0.1:4568'
+          baseUrl: 'http://127.0.0.1:4568',
+          userId: globalCurrUser.get('id')
         });
         link.save().then(function() {
           done();
         });
+
       });
 
       it('Returns the same shortened code', function(done) {
@@ -203,6 +207,7 @@ describe('', function() {
         };
 
         requestWithSession(options, function(error, res, body) {
+          console.log(res.headers);
           expect(body).to.include('"title":"Funny pictures of animals, funny dog pictures"');
           expect(body).to.include('"code":"' + link.get('code') + '"');
           done();
@@ -330,6 +335,28 @@ describe('', function() {
         done();
       });
     });
+
+    it('Logs out a user and ends the session', function(done) {
+      
+      var options = {
+        'method': 'GET',
+        'uri': 'http://127.0.0.1:4568/login'
+      };
+
+      var options2 = {
+        'method': 'GET',
+        'uri': 'http://127.0.0.1:4568/links'
+      };
+
+      requestWithSession(options, function(error, res, body) {
+        requestWithSession(options2, function(error, res, body) {
+          expect(res.headers.location).to.equal('/login');
+          done();
+        });
+      });
+
+    });
+
 
   }); // 'Account Login'
 
