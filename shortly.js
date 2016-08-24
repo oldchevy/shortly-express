@@ -126,6 +126,7 @@ app.get('/login', function(req, res) {
   res.render('login');
 
   if (req.session.username) {
+    //console.log('Destroying session');
     req.session.destroy(function(err) {
       if (err) { console.log(err); }
     });

@@ -200,14 +200,14 @@ describe('', function() {
         });
       });
 
-      it('Returns all of the links to display on the links page', function(done) {
+      it('Returns all of logged in user\'s links to display on the links page', function(done) {
         var options = {
           'method': 'GET',
           'uri': 'http://127.0.0.1:4568/links'
         };
 
         requestWithSession(options, function(error, res, body) {
-          console.log(res.headers);
+          expect(JSON.parse(body).length).to.equal(1);
           expect(body).to.include('"title":"Funny pictures of animals, funny dog pictures"');
           expect(body).to.include('"code":"' + link.get('code') + '"');
           done();
@@ -240,6 +240,13 @@ describe('', function() {
         done();
       });
     });
+
+    it('Should have a hashed password', function() {
+      var pass = globalCurrUser.get('password');
+      expect(pass).to.exist;
+      expect(pass).to.not.equal('Phillip');
+    });
+    
 
   }); // 'Priviledged Access'
 
@@ -349,20 +356,16 @@ describe('', function() {
       };
 
       requestWithSession(options, function(error, res, body) {
-        requestWithSession(options2, function(error, res, body) {
-          expect(res.headers.location).to.equal('/login');
+        requestWithSession(options2, function(error, res2, body) {
+          console.log(res.req.path);
+          expect(res2.req.path).to.equal('/login');
+          expect(res2.body).to.equal(res.body);
           done();
         });
       });
 
     });
 
-
-  }); // 'Account Login'
-
-  //Test ideas:
-    //Hashing is working correctly
-    //Must retrieve only that users links
-    
+  });
 
 });
