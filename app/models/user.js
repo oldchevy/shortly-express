@@ -12,8 +12,10 @@ var User = db.Model.extend({
     return this.hasMany(Link, 'userId');
   },
 
-  checkPassword: function(callback) {
-
+  checkPassword: function(pass, callback) {
+    bcrypt.compare(pass, this.get('password'), function(err, result) {
+      callback(result);
+    });
   },
 
   initialize: function() {

@@ -357,7 +357,6 @@ describe('', function() {
 
       requestWithSession(options, function(error, res, body) {
         requestWithSession(options2, function(error, res2, body) {
-          console.log(res.req.path);
           expect(res2.req.path).to.equal('/login');
           expect(res2.body).to.equal(res.body);
           done();

@@ -30,10 +30,9 @@ app.use(session({
 
 app.use(express.static(__dirname + '/public'));
 
-
+//This is the session check
 var restrict = function(req, res, next) {
-  console.log('in restrict');
-  if (req.session.username) {
+  if (req.session.user) {
     next();
   } else {
     res.redirect('/login');
@@ -42,7 +41,6 @@ var restrict = function(req, res, next) {
 
 app.get('/', restrict, 
 function(req, res) {
-  console.log('In / route');
   res.render('index');
 });
 
@@ -53,24 +51,19 @@ function(req, res) {
 
 app.get('/links', restrict,   
 function(req, res) {
-  new User({ username: req.session.username })
+
+  // The way to do a 'join' query with bookshelf
+  //Use this way if you didn't have the userID stored as a session var
+  new User({ username: req.session.user.username })
       .fetch({withRelated: ['links']})
       .then (function(currUser) {
         if (currUser) {
-          console.log(currUser);
-          console.log('related links:', currUser.related('links').toJSON());
           return currUser.related('links').fetch();
         }
       })
       .then(function(links) {
         res.status(200).send(links.models);
-        console.log(links);
       });
-
-  //Query for inner join on user id matching username
-  // Links.reset().fetch().then(function(links) {
-  //   res.status(200).send(links.models);
-  // });
 });
 
 app.post('/links', restrict,
@@ -82,10 +75,11 @@ function(req, res) {
     return res.sendStatus(404);
   }
 
-  var userId;
+  var currId = req.session.user.id;
 
-
-  new Link({ url: uri }).fetch().then(function(found) {
+  //With userId stored as a session var, we can just filter our query on that,
+  //instead of dealing with that joining nonsense above.
+  new Link({ url: uri, userId: currId }).fetch().then(function(found) {
     if (found) {
       res.status(200).send(found.attributes);
     } else {
@@ -95,21 +89,15 @@ function(req, res) {
           return res.sendStatus(404);
         }
 
-        //Query to find the Usr ID and give that to new link
-        var queryUserId = Users.query();
-        queryUserId.where({username: req.session.username}).select('id')
-        .then(function(result) {
-          console.log('username: ', req.session.username, ' result: ', result);
-          Links.create({
-            url: uri,
-            title: title,
-            baseUrl: req.headers.origin,
-            userId: result[0].id
-          })
-          .then(function(newLink) {
-            console.log(newLink);
-            res.status(200).send(newLink);
-          });
+        Links.create({
+          url: uri,
+          title: title,
+          baseUrl: req.headers.origin,
+          userId: currId
+        })
+        .then(function(newLink) {
+          //console.log(newLink);
+          res.status(200).send(newLink);
         });
 
       });
@@ -122,11 +110,9 @@ function(req, res) {
 /************************************************************/
 
 app.get('/login', function(req, res) {
-  console.log('/login');
   res.render('login');
 
-  if (req.session.username) {
-    //console.log('Destroying session');
+  if (req.session.user) {
     req.session.destroy(function(err) {
       if (err) { console.log(err); }
     });
@@ -134,23 +120,19 @@ app.get('/login', function(req, res) {
 });
 
 app.get('/signup', function(req, res) {
-  console.log('/signup');
   res.render('signup');
 });
 
 app.post('/login', function(req, res) {
-  console.log('post req:', req.body);
+  // console.log('post req:', req.body);
 
   new User({ username: req.body.username}).fetch().then(function(found) {
     if (found) {
-      console.log('For Login - \nsPassword: ', req.body.password, '\nHash: ', found.attributes.password);
-      bcrypt.compare(req.body.password, found.attributes.password, function(err, result) {
-        if (err) {
-          throw err;
-        }
-        if (result) {
-          req.session.username = req.body.username;
-          res.redirect('/');      
+      found.checkPassword(req.body.password, function(bool) {
+        if (bool) {
+          //Start session!
+          req.session.user = found;
+          res.redirect('/');           
         } else {
           res.redirect('/login');          
         }
@@ -163,9 +145,9 @@ app.post('/login', function(req, res) {
 
 
 app.post('/signup', function(req, res) {
-  console.log('post signup req.body', req.body);
+  // console.log('post signup req.body', req.body);
   new User({ username: req.body.username}).fetch().then(function(found) {
-    console.log('Inside first Promise');
+    // console.log('Inside first Promise');
     if (found) {
       res.redirect('/login');
     } else {
@@ -174,7 +156,8 @@ app.post('/signup', function(req, res) {
         password: req.body.password
       })
       .then(function(newUser) {
-        req.session.username = req.body.username;
+        //Start session!
+        req.session.user = newUser;
         res.redirect('/');
       });
     }
@@ -190,7 +173,7 @@ app.post('/signup', function(req, res) {
 /************************************************************/
 
 app.get('/*', function(req, res) {
-  console.log('In Links route');
+  // console.log('In Links route');
   new Link({ code: req.params[0] }).fetch().then(function(link) {
     if (!link) {
       res.redirect('/');
