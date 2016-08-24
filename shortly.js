@@ -54,11 +54,11 @@ function(req, res) {
 app.get('/links', restrict,   
 function(req, res) {
   new User({ username: req.session.username })
-      .fetch({withRelated: 'links'})
+      .fetch({withRelated: ['links']})
       .then (function(currUser) {
         if (currUser) {
           console.log(currUser);
-          console.log(currUser.related);
+          console.log('related links:', currUser.related('links').toJSON());
           return currUser.related('links').fetch();
         }
       })

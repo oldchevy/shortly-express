@@ -13,7 +13,7 @@ var Link = db.Model.extend({
     return this.hasMany(Click);
   },
   users: function() {
-    return this.belongsTo(User, 'userId');
+    return this.belongsTo(User, 'id');
   },
 
   initialize: function() {
