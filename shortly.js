@@ -33,7 +33,7 @@ app.use(express.static(__dirname + '/public'));
 
 var restrict = function(req, res, next) {
   console.log('in restrict');
-  if (req.session.login) {
+  if (req.session.username) {
     next();
   } else {
     res.redirect('/login');
@@ -53,12 +53,27 @@ function(req, res) {
 
 app.get('/links', restrict,   
 function(req, res) {
-  Links.reset().fetch().then(function(links) {
-    res.status(200).send(links.models);
-  });
+  new User({ username: req.session.username })
+      .fetch({withRelated: 'links'})
+      .then (function(currUser) {
+        if (currUser) {
+          console.log(currUser);
+          console.log(currUser.related);
+          return currUser.related('links').fetch();
+        }
+      })
+      .then(function(links) {
+        res.status(200).send(links.models);
+        console.log(links);
+      });
+
+  //Query for inner join on user id matching username
+  // Links.reset().fetch().then(function(links) {
+  //   res.status(200).send(links.models);
+  // });
 });
 
-app.post('/links', 
+app.post('/links', restrict,
 function(req, res) {
   var uri = req.body.url;
 
@@ -66,6 +81,9 @@ function(req, res) {
     console.log('Not a valid url: ', uri);
     return res.sendStatus(404);
   }
+
+  var userId;
+
 
   new Link({ url: uri }).fetch().then(function(found) {
     if (found) {
@@ -77,14 +95,23 @@ function(req, res) {
           return res.sendStatus(404);
         }
 
-        Links.create({
-          url: uri,
-          title: title,
-          baseUrl: req.headers.origin
-        })
-        .then(function(newLink) {
-          res.status(200).send(newLink);
+        //Query to find the Usr ID and give that to new link
+        var queryUserId = Users.query();
+        queryUserId.where({username: req.session.username}).select('id')
+        .then(function(result) {
+          console.log('username: ', req.session.username, ' result: ', result);
+          Links.create({
+            url: uri,
+            title: title,
+            baseUrl: req.headers.origin,
+            userId: result[0].id
+          })
+          .then(function(newLink) {
+            console.log(newLink);
+            res.status(200).send(newLink);
+          });
         });
+
       });
     }
   });
@@ -98,7 +125,7 @@ app.get('/login', function(req, res) {
   console.log('/login');
   res.render('login');
 
-  if (req.session.login) {
+  if (req.session.username) {
     req.session.destroy(function(err) {
       if (err) { console.log(err); }
     });
@@ -121,7 +148,7 @@ app.post('/login', function(req, res) {
           throw err;
         }
         if (result) {
-          req.session.login = true;
+          req.session.username = req.body.username;
           res.redirect('/');      
         } else {
           res.redirect('/login');          
@@ -153,7 +180,7 @@ app.post('/signup', function(req, res) {
               password: hash
             })
             .then(function(newUser) {
-              req.session.login = true;
+              req.session.username = req.body.username;
               res.redirect('/');
             });
           }

@@ -7,7 +7,7 @@ var Promise = require('bluebird');
 var User = db.Model.extend({
   tableName: 'users', 
   links: function() {
-    return this.hasMany(Link);
+    return this.hasMany(Link, 'id');
   }
 });
 
